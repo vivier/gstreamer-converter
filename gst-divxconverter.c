@@ -75,6 +75,8 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 
 		GstFormat fmt = GST_FORMAT_TIME;
 		gst_element_query_duration( divx->decoder, &fmt, &len);
+		if (len == -1)
+			return;
 
 		len /= GST_SECOND;
 
@@ -108,7 +110,9 @@ static gboolean cb_print_position (GstElement *pipeline)
 	gint64 pos, len;
 
 	if (gst_element_query_position (pipeline, &fmt, &pos)
-	    && gst_element_query_duration (pipeline, &fmt, &len)) {
+            && pos != -1 
+	    && gst_element_query_duration (pipeline, &fmt, &len)
+	    && len != -1) {
 		g_print ("Time: %" GST_TIME_FORMAT " / %" GST_TIME_FORMAT "\r",
 		GST_TIME_ARGS (pos), GST_TIME_ARGS (len));
 	}
