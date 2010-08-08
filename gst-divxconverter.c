@@ -14,6 +14,7 @@ typedef struct {
 	guint video_bitrate;
 	guint size;
 	guint start;
+	guint end;
 } divx_info;
 
 static gboolean cb_bus(GstBus *bus, GstMessage *msg, gpointer data)
@@ -26,7 +27,8 @@ static gboolean cb_bus(GstBus *bus, GstMessage *msg, gpointer data)
 		static done = 0;
 		gst_message_parse_state_changed(msg, &oldstate, &newstate,
 						&pending);
-		if (!done && newstate == GST_STATE_PLAYING &&
+		if (divx->start != 0 &&
+		    !done && newstate == GST_STATE_PLAYING &&
 		    gst_element_seek (divx->decoder, 1.0,
 				      GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
                         	      GST_SEEK_TYPE_SET,
@@ -123,17 +125,24 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 	}
 }
 
-static gboolean cb_print_position (GstElement *pipeline)
+static gboolean cb_print_position (divx_info *divx)
 {
 	GstFormat fmt = GST_FORMAT_TIME;
 	gint64 pos, len;
 
-	if (gst_element_query_position (pipeline, &fmt, &pos)
+	if (gst_element_query_position (divx->decoder, &fmt, &pos)
             && pos != -1 
-	    && gst_element_query_duration (pipeline, &fmt, &len)
+	    && gst_element_query_duration (divx->decoder, &fmt, &len)
 	    && len != -1) {
 		g_print ("Time: %" GST_TIME_FORMAT " / %" GST_TIME_FORMAT "\r",
 		GST_TIME_ARGS (pos), GST_TIME_ARGS (len));
+		if (divx->end != 0 && pos >= divx->end * GST_SECOND) {
+			gst_element_seek (divx->decoder, 1.0,
+					  GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
+					  GST_SEEK_TYPE_SET, len,
+					  GST_SEEK_TYPE_NONE,
+					  GST_CLOCK_TIME_NONE);
+		}
 	}
 	/* call me again */
 	return TRUE;
@@ -200,6 +209,9 @@ int main (int argc, char *argv[])
 		  NULL },
 		{ "start", 't', 0, G_OPTION_ARG_INT,
 		  &info.start, "Set the second from where to start encoding",
+		  NULL },
+		{ "end", 'e', 0, G_OPTION_ARG_INT,
+		  &info.end, "Set the second where to stop encoding",
 		  NULL },
 		{ NULL }
 	};
@@ -272,7 +284,7 @@ int main (int argc, char *argv[])
 
 	/* run */
 
-	g_timeout_add (500, (GSourceFunc) cb_print_position, pipeline);
+	g_timeout_add (500, (GSourceFunc) cb_print_position, &info);
 	gst_element_set_state (pipeline, GST_STATE_PLAYING);
 	g_main_loop_run (info.loop);
 
