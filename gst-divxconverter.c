@@ -7,20 +7,38 @@
 #include <gst/gst.h>
 
 typedef struct {
+	GMainLoop *loop;
 	GstElement *decoder;
 	GstElement *encoder;
 	guint audio_bitrate;
 	guint video_bitrate;
 	guint size;
+	guint start;
 } divx_info;
 
 static gboolean cb_bus(GstBus *bus, GstMessage *msg, gpointer data)
 {
-	GMainLoop *loop = (GMainLoop *) data;
+	divx_info *divx = (divx_info *)data;
 
 	switch (GST_MESSAGE_TYPE (msg)) {
+	case GST_MESSAGE_STATE_CHANGED: {
+		GstState oldstate, newstate, pending;
+		static done = 0;
+		gst_message_parse_state_changed(msg, &oldstate, &newstate,
+						&pending);
+		if (!done && newstate == GST_STATE_PLAYING &&
+		    gst_element_seek (divx->decoder, 1.0,
+				      GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
+                        	      GST_SEEK_TYPE_SET,
+				      divx->start * GST_SECOND,
+                         	      GST_SEEK_TYPE_NONE,
+				      GST_CLOCK_TIME_NONE)) {
+				done = 1;
+		}
+		break;
+	}
 	case GST_MESSAGE_EOS:
-		g_main_loop_quit (loop);
+		g_main_loop_quit (divx->loop);
 		break;
 	case GST_MESSAGE_ERROR: {
 		gchar *debug;
@@ -29,7 +47,7 @@ static gboolean cb_bus(GstBus *bus, GstMessage *msg, gpointer data)
 		g_free (debug);
 		g_printerr ("Error: %s\n", error->message);
 		g_error_free (error);
-		g_main_loop_quit (loop);
+		g_main_loop_quit (divx->loop);
 		break;
 	}
 	default:
@@ -78,6 +96,7 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 		if (len == -1)
 			return;
 
+		len -= divx->start * GST_SECOND;
 		len /= GST_SECOND;
 
 		target_size = (divx->size - 2) * 1024 * 1024;
@@ -163,7 +182,6 @@ static GstElement *create_divx_encoder(void)
 
 int main (int argc, char *argv[])
 {
-	GMainLoop *loop;
 	GstElement *pipeline;
 	GstBus *bus;
 	GstElement *source, *decoder, *sink;
@@ -179,6 +197,9 @@ int main (int argc, char *argv[])
 		  NULL },
 		{ "file-size", 's', 0, G_OPTION_ARG_INT,
 		  &info.size, "Set file size in megabyte",
+		  NULL },
+		{ "start", 't', 0, G_OPTION_ARG_INT,
+		  &info.start, "Set the second from where to start encoding",
 		  NULL },
 		{ NULL }
 	};
@@ -208,14 +229,14 @@ int main (int argc, char *argv[])
 	}
 
 	gst_init (&argc, &argv);
-	loop = g_main_loop_new (NULL, FALSE);
+	info.loop = g_main_loop_new (NULL, FALSE);
 
 	/* create a pipeline */
 
 	pipeline = gst_pipeline_new ("pipeline");
 
 	bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
-	gst_bus_add_watch (bus, cb_bus, loop);
+	gst_bus_add_watch (bus, cb_bus, &info);
 	gst_object_unref (bus);
 
 	/** create an encoder bin */
@@ -253,7 +274,7 @@ int main (int argc, char *argv[])
 
 	g_timeout_add (500, (GSourceFunc) cb_print_position, pipeline);
 	gst_element_set_state (pipeline, GST_STATE_PLAYING);
-	g_main_loop_run (loop);
+	g_main_loop_run (info.loop);
 
 	/* cleanup */
 
@@ -264,4 +285,3 @@ int main (int argc, char *argv[])
 
 	return 0;
 }
-
