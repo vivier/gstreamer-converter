@@ -10,6 +10,6 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 
 link_directories(${GSTREAMER_LIBRARY_DIRS})
 
-add_executable(gst-divxconverter gst-divxconverter)
+add_executable(gst-divxconverter gst-divxconverter divx_encoder.c)
 
 target_link_libraries(gst-divxconverter ${GSTREAMER_LIBRARIES})
