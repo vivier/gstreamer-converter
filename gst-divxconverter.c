@@ -91,13 +91,17 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 		gint64 audio_size;
 		gint64 video_size;
 
-		GstFormat fmt = GST_FORMAT_TIME;
-		gst_element_query_duration( divx->decoder, &fmt, &len);
-		if (len == -1)
-			return;
+		if (divx->end) {
+			len = divx->end - divx->start;
+		} else {
+			GstFormat fmt = GST_FORMAT_TIME;
+			gst_element_query_duration( divx->decoder, &fmt, &len);
+			if (len == -1)
+				return;
 
-		len -= divx->start * GST_SECOND;
-		len /= GST_SECOND;
+			len -= divx->start * GST_SECOND;
+			len /= GST_SECOND;
+		}
 
 		target_size = (divx->size - 2) * 1024 * 1024;
 		audio_size = len * divx->audio_bitrate * 1024 / 8;
@@ -126,22 +130,35 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 static gboolean cb_print_position (divx_info *divx)
 {
 	GstFormat fmt = GST_FORMAT_TIME;
-	gint64 pos, len;
+	gint64 pos, len, tmp;
 
-	if (gst_element_query_position (divx->decoder, &fmt, &pos)
-            && pos != -1 
-	    && gst_element_query_duration (divx->decoder, &fmt, &len)
-	    && len != -1) {
-		g_print ("Time: %" GST_TIME_FORMAT " / %" GST_TIME_FORMAT "\r",
-		GST_TIME_ARGS (pos), GST_TIME_ARGS (len));
-		if (divx->end != 0 && pos >= divx->end * GST_SECOND) {
-			gst_element_seek (divx->decoder, 1.0,
-					  GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
-					  GST_SEEK_TYPE_SET, len,
-					  GST_SEEK_TYPE_NONE,
-					  GST_CLOCK_TIME_NONE);
-		}
+	if (!gst_element_query_position (divx->decoder, &fmt, &pos)
+            || pos == -1 )
+		return TRUE;
+
+	if (!gst_element_query_duration (divx->decoder, &fmt, &len)
+	    || len == -1)
+		return TRUE;
+
+	if (divx->end)
+		tmp = (divx->end - divx->start) * GST_SECOND;
+	else
+		tmp = len - divx->start * GST_SECOND;
+
+	g_print ("Time: %" GST_TIME_FORMAT " / %" GST_TIME_FORMAT "\r",
+		 GST_TIME_ARGS (pos - divx->start * GST_SECOND), 
+		 GST_TIME_ARGS (tmp));
+
+	/* is this the end ? */
+
+	if (divx->end != 0 && pos >= divx->end * GST_SECOND) {
+		gst_element_seek (divx->decoder, 1.0,
+				  GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
+				  GST_SEEK_TYPE_SET, len,
+				  GST_SEEK_TYPE_NONE,
+				  GST_CLOCK_TIME_NONE);
 	}
+
 	/* call me again */
 	return TRUE;
 }
@@ -242,7 +259,7 @@ int main (int argc, char *argv[])
 
 	/* run */
 
-	g_timeout_add (500, (GSourceFunc) cb_print_position, &info);
+	g_timeout_add (100, (GSourceFunc) cb_print_position, &info);
 	gst_element_set_state (pipeline, GST_STATE_PLAYING);
 	g_main_loop_run (info.loop);
 
