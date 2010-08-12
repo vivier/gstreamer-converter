@@ -32,6 +32,7 @@
  *
  */
 
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -267,6 +268,11 @@ int main (int argc, char *argv[])
 	if (info.size) {
 		info.video_bitrate = 0;
 	}
+
+	if (access(argv[2], F_OK) == 0) {
+		g_print("\"%s\" already exists.\n", argv[2]);
+		return 1;
+	} 
 
 	gst_init (&argc, &argv);
 	info.loop = g_main_loop_new (NULL, FALSE);
