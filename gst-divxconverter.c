@@ -34,6 +34,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #include <gst/gst.h>
 
 #include "divx_encoder.h"
@@ -59,15 +60,31 @@ static gboolean cb_bus(GstBus *bus, GstMessage *msg, gpointer data)
 		static done = 0;
 		gst_message_parse_state_changed(msg, &oldstate, &newstate,
 						&pending);
-		if (divx->start != 0 &&
-		    !done && newstate == GST_STATE_PLAYING &&
-		    gst_element_seek (divx->decoder, 1.0,
-				      GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
-                        	      GST_SEEK_TYPE_SET,
-				      divx->start * GST_SECOND,
-                         	      GST_SEEK_TYPE_NONE,
-				      GST_CLOCK_TIME_NONE)) {
+		if (!done && newstate == GST_STATE_PLAYING) {
+			if (divx->start != 0) {
+				if (gst_element_seek (divx->decoder, 1.0,
+					      GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
+                        		      GST_SEEK_TYPE_SET,
+					      divx->start * GST_SECOND,
+                        		      GST_SEEK_TYPE_NONE,
+					      GST_CLOCK_TIME_NONE)) {
+						      done = 1;
+					      g_print("audio bitrate : %u kb/s\n",
+						      divx->audio_bitrate);
+					      g_print("video bitrate : %u  b/s\n",
+						      divx->video_bitrate);
+					      g_print("target size   : %u MB\n",
+						      divx->size);
+				}
+			} else {
+				g_print("audio bitrate : %u kb/s\n",
+					divx->audio_bitrate);
+				g_print("video bitrate : %u  b/s\n",
+					divx->video_bitrate);
+				g_print("target size   : %u MB\n",
+					divx->size);
 				done = 1;
+			}
 		}
 		break;
 	}
@@ -110,6 +127,10 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 	GstCaps *caps;
 	divx_info *divx = data;
 	GstPad *divxpad;
+	gint64 target_size;
+	gint64 audio_size;
+	gint64 video_size;
+	gint64 len = -1;
 
 	caps = gst_pad_get_caps (pad);
 
@@ -119,25 +140,21 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 
 	gst_pad_link (pad, divxpad);
 
+	if (divx->end) {
+		len = divx->end - divx->start;
+	} else {
+		GstFormat fmt = GST_FORMAT_TIME;
+		gst_element_query_duration( divx->decoder, &fmt, &len);
+		if (len == -1)
+			return;
+
+		len -= divx->start * GST_SECOND;
+		len /= GST_SECOND;
+	}
+
 	if (divx->video_bitrate == 0 && divx->size != 0) {
-		gint64 len = -1;
-		gint64 target_size;
-		gint64 audio_size;
-		gint64 video_size;
 
-		if (divx->end) {
-			len = divx->end - divx->start;
-		} else {
-			GstFormat fmt = GST_FORMAT_TIME;
-			gst_element_query_duration( divx->decoder, &fmt, &len);
-			if (len == -1)
-				return;
-
-			len -= divx->start * GST_SECOND;
-			len /= GST_SECOND;
-		}
-
-		target_size = (divx->size - 2) * 1024 * 1024;
+		target_size = divx->size * 1024 * 1024;
 		audio_size = len * divx->audio_bitrate * 1024 / 8;
 		video_size = target_size - audio_size;
 
@@ -148,10 +165,12 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 
 		set_divx_video_bitrate(GST_BIN(divx->encoder),
 				       divx->video_bitrate);
-
-		g_print("audio bitrate : %u kb/s\n", divx->audio_bitrate);
-		g_print("video bitrate : %u  b/s\n", divx->video_bitrate);
 	} else if (divx->size == 0) {
+		audio_size = len * divx->audio_bitrate * 1024 / 8;
+		video_size = len * divx->video_bitrate / 8;
+		target_size = audio_size + video_size;
+
+		divx->size = target_size / (1024 * 1024);
 
 		set_divx_audio_bitrate((GstBin*)divx->encoder,
 				       divx->audio_bitrate);
