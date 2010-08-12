@@ -227,7 +227,7 @@ int main (int argc, char *argv[])
 
 	memset(&info, 0, sizeof(info));
 
-	info.size = 700;
+	info.video_bitrate = 1500000;
 	info.audio_bitrate = 192;
 
 	/* Gstreamer init */
@@ -245,8 +245,8 @@ int main (int argc, char *argv[])
 		return 1;
 	}
 
-	if (info.video_bitrate) {
-		info.size = 0;
+	if (info.size) {
+		info.video_bitrate = 0;
 	}
 
 	gst_init (&argc, &argv);
