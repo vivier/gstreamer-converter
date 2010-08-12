@@ -223,6 +223,7 @@ int main (int argc, char *argv[])
 	GstElement *pipeline;
 	GstBus *bus;
 	GstElement *source, *decoder, *sink;
+	gchar *srcfile, *dstfile;
 	divx_info info;
 	GOptionContext *ctx;
 	GError *err = NULL;
@@ -255,7 +256,7 @@ int main (int argc, char *argv[])
 	if (!g_thread_supported ())
 		g_thread_init (NULL);
 
-	ctx = g_option_context_new ("source dest");
+	ctx = g_option_context_new ("source [dest]");
 	g_option_context_add_main_entries (ctx, entries, NULL);
 	g_option_context_add_group (ctx, gst_init_get_option_group ());
 
@@ -265,12 +266,40 @@ int main (int argc, char *argv[])
 		return 1;
 	}
 
+	if (argc < 2) {
+		g_print("Source file is missing.\n");
+		return 1;
+	}
+	srcfile = argv[1];
+
+	if (argc > 3) {
+		g_print("Too many parameters.\n");
+		return 1;
+	}
+
+	if (argc < 3) {
+		gchar *suffix = strrchr(srcfile, '.');
+
+		if (suffix == NULL) {
+			dstfile = malloc(strlen(srcfile) + 5);
+			strcpy(dstfile, srcfile);
+		} else {
+			dstfile = malloc(suffix - srcfile + 5);
+			memcpy(dstfile, srcfile, suffix - srcfile);
+			dstfile[suffix - srcfile] = 0;
+		}
+		strcat(dstfile, ".avi");
+		g_print("Destination file is \"%s\"\n", dstfile);
+	} else {
+		dstfile = argv[2];
+	}
+
 	if (info.size) {
 		info.video_bitrate = 0;
 	}
 
-	if (access(argv[2], F_OK) == 0) {
-		g_print("\"%s\" already exists.\n", argv[2]);
+	if (access(dstfile, F_OK) == 0) {
+		g_print("\"%s\" already exists.\n", dstfile);
 		return 1;
 	} 
 
@@ -294,7 +323,7 @@ int main (int argc, char *argv[])
 	/** source */
 
 	source = gst_element_factory_make ("filesrc", "source");
-	g_object_set (G_OBJECT (source), "location", argv[1], NULL);
+	g_object_set (G_OBJECT (source), "location", srcfile, NULL);
 
 	/** decoder */
 
@@ -306,7 +335,7 @@ int main (int argc, char *argv[])
 	/* sink */
 
 	sink = gst_element_factory_make ("filesink", "sink");
-	g_object_set (G_OBJECT (sink), "location", argv[2], NULL);
+	g_object_set (G_OBJECT (sink), "location", dstfile, NULL);
 
 	/** link them together */
 
