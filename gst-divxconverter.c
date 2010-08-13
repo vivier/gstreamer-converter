@@ -233,7 +233,7 @@ int main (int argc, char *argv[])
 	divx_info info;
 	GOptionContext *ctx;
 	GError *err = NULL;
-	gint width = 0, height = 0;
+	gint width = 0, height = 0, force = 0;
 	GOptionEntry entries[] = {
 		{ "audio-bitrate", 'a', 0, G_OPTION_ARG_INT,
 		  &info.audio_bitrate, "Set audio bitrate kilobits/second",
@@ -255,6 +255,9 @@ int main (int argc, char *argv[])
 		  NULL },
 		{ "height", 'h', 0, G_OPTION_ARG_INT,
 		  &height, "Set the height",
+		  NULL },
+		{ "force", 'F', 0, G_OPTION_ARG_NONE,
+		  &force, "Force file overwrite",
 		  NULL },
 		{ NULL }
 	};
@@ -311,7 +314,7 @@ int main (int argc, char *argv[])
 		info.video_bitrate = 0;
 	}
 
-	if (access(dstfile, F_OK) == 0) {
+	if (!force && access(dstfile, F_OK) == 0) {
 		g_print("\"%s\" already exists.\n", dstfile);
 		return 1;
 	} 
