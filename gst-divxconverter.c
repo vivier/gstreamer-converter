@@ -59,7 +59,7 @@ static gboolean cb_bus(GstBus *bus, GstMessage *msg, gpointer data)
 	switch (GST_MESSAGE_TYPE (msg)) {
 	case GST_MESSAGE_STATE_CHANGED: {
 		GstState oldstate, newstate, pending;
-		static done = 0;
+		static int done = 0;
 		gst_message_parse_state_changed(msg, &oldstate, &newstate,
 						&pending);
 		if (!done && newstate == GST_STATE_PLAYING) {
@@ -227,7 +227,6 @@ int main (int argc, char *argv[])
 	GstElement *pipeline;
 	GstBus *bus;
 	GstElement *source, *decoder, *sink, *filter;
-	GstPad *pad1, *pad2;
 	gchar *srcfile, *dstfile;
 	GstCaps *filtercaps;
 	divx_info info;

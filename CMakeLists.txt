@@ -45,3 +45,6 @@ link_directories(${GSTREAMER_LIBRARY_DIRS})
 add_executable(gst-divxconverter gst-divxconverter divx_encoder.c)
 
 target_link_libraries(gst-divxconverter ${GSTREAMER_LIBRARIES})
+
+set_property(TARGET gst-divxconverter
+	     PROPERTY COMPILE_FLAGS "-Wall -Werror")
