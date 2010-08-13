@@ -44,6 +44,7 @@ typedef struct {
 	GMainLoop *loop;
 	GstElement *decoder;
 	GstElement *encoder;
+	GstElement *pipe;
 	guint audio_bitrate;
 	guint video_bitrate;
 	guint size;
@@ -135,9 +136,12 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 
 	caps = gst_pad_get_caps (pad);
 
-	divxpad = gst_element_get_compatible_pad (divx->encoder, pad, caps);
-	if (divxpad == NULL)
-		return;
+	divxpad = gst_element_get_compatible_pad (divx->pipe, pad, caps);
+	if (divxpad == NULL) {
+		divxpad = gst_element_get_compatible_pad (divx->encoder, pad,								  caps);
+		if (divxpad == NULL)
+			return;
+	}
 
 	gst_pad_link (pad, divxpad);
 
@@ -222,11 +226,14 @@ int main (int argc, char *argv[])
 {
 	GstElement *pipeline;
 	GstBus *bus;
-	GstElement *source, *decoder, *sink;
+	GstElement *source, *decoder, *sink, *filter;
+	GstPad *pad1, *pad2;
 	gchar *srcfile, *dstfile;
+	GstCaps *filtercaps;
 	divx_info info;
 	GOptionContext *ctx;
 	GError *err = NULL;
+	gint width = 0, height = 0;
 	GOptionEntry entries[] = {
 		{ "audio-bitrate", 'a', 0, G_OPTION_ARG_INT,
 		  &info.audio_bitrate, "Set audio bitrate kilobits/second",
@@ -242,6 +249,12 @@ int main (int argc, char *argv[])
 		  NULL },
 		{ "end", 'e', 0, G_OPTION_ARG_INT,
 		  &info.end, "Set the second where to stop encoding",
+		  NULL },
+		{ "width", 'w', 0, G_OPTION_ARG_INT,
+		  &width, "Set the width",
+		  NULL },
+		{ "height", 'h', 0, G_OPTION_ARG_INT,
+		  &height, "Set the height",
 		  NULL },
 		{ NULL }
 	};
@@ -318,6 +331,23 @@ int main (int argc, char *argv[])
 
 	info.encoder = create_divx_encoder();
 
+	if (width || height) {
+		info.pipe = gst_element_factory_make ("videoscale",
+						      "videoscale");
+		filter = gst_element_factory_make ("capsfilter", "flt");
+		filtercaps = gst_caps_new_simple ("video/x-raw-yuv", NULL);
+		if (width)
+			gst_caps_set_simple(filtercaps, "width",
+					    G_TYPE_INT, width, NULL);
+		if (height)
+			gst_caps_set_simple(filtercaps, "height",
+					    G_TYPE_INT, height, NULL);
+		g_object_set (G_OBJECT (filter), "caps", filtercaps, NULL);
+		gst_caps_unref (filtercaps);
+	} else {
+		info.pipe = info.encoder;
+	}
+
 	/* add decoder elements */
 
 	/** source */
@@ -341,8 +371,15 @@ int main (int argc, char *argv[])
 
 	gst_bin_add_many (GST_BIN (pipeline), source, decoder,
 			  info.encoder, sink, NULL);
+	if (width || height) {
+		gst_bin_add_many (GST_BIN (pipeline), info.pipe, filter, NULL);
+	}
 
 	gst_element_link (source, decoder);
+	if (width || height) {
+		gst_element_link (info.pipe, filter);
+		gst_element_link (filter, info.encoder);
+	}
 	gst_element_link (info.encoder, sink);
 
 	/* run */
