@@ -163,7 +163,7 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 		audio_size = len * divx->audio_bitrate * 1024 / 8;
 		video_size = target_size - audio_size;
 
-		divx->video_bitrate = video_size / (len  / 8);
+		divx->video_bitrate = video_size * 8 / len;
 
 		set_divx_audio_bitrate(GST_BIN(divx->encoder),
 				       divx->audio_bitrate);
