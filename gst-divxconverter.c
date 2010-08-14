@@ -280,15 +280,16 @@ int main (int argc, char *argv[])
 		g_error_free (err);
 		return 1;
 	}
+	g_option_context_free(ctx);
 
 	if (argc < 2) {
-		g_print("Source file is missing.\n");
+		g_printerr("Source file is missing.\n");
 		return 1;
 	}
 	srcfile = argv[1];
 
 	if (argc > 3) {
-		g_print("Too many parameters.\n");
+		g_printerr("Too many parameters.\n");
 		return 1;
 	}
 
@@ -304,7 +305,7 @@ int main (int argc, char *argv[])
 			dstfile[suffix - srcfile] = 0;
 		}
 		strcat(dstfile, ".avi");
-		g_print("Destination file is \"%s\"\n", dstfile);
+		g_printerr("Destination file is \"%s\"\n", dstfile);
 	} else {
 		dstfile = argv[2];
 	}
@@ -314,7 +315,7 @@ int main (int argc, char *argv[])
 	}
 
 	if (!force && access(dstfile, F_OK) == 0) {
-		g_print("\"%s\" already exists.\n", dstfile);
+		g_printerr("\"%s\" already exists.\n", dstfile);
 		return 1;
 	} 
 
