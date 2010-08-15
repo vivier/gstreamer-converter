@@ -42,9 +42,12 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 
 link_directories(${GSTREAMER_LIBRARY_DIRS})
 
-add_executable(gst-divxconverter gst-divxconverter divx_encoder.c)
-
+add_executable(gst-divxconverter gst-divxconverter divx_encoder)
 target_link_libraries(gst-divxconverter ${GSTREAMER_LIBRARIES})
-
 set_property(TARGET gst-divxconverter
-	     PROPERTY COMPILE_FLAGS "-Wall -Werror")
+	     PROPERTY COMPILE_FLAGS "-Wall -Werror -g")
+
+add_executable(gst-iphoneconverter gst-iphoneconverter iphone_encoder)
+target_link_libraries(gst-iphoneconverter ${GSTREAMER_LIBRARIES})
+set_property(TARGET gst-iphoneconverter
+	     PROPERTY COMPILE_FLAGS "-Wall -Werror -g")
