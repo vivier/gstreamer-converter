@@ -139,9 +139,12 @@ static void cb_newpad (GstElement *decodebin, GstPad *pad,
 	divxpad = gst_element_get_compatible_pad (divx->pipe, pad, caps);
 	if (divxpad == NULL) {
 		divxpad = gst_element_get_compatible_pad (divx->encoder, pad,								  caps);
-		if (divxpad == NULL)
+		if (divxpad == NULL) {
+			gst_caps_unref(caps);
 			return;
+		}
 	}
+	gst_caps_unref(caps);
 
 	gst_pad_link (pad, divxpad);
 
