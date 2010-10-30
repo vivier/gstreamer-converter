@@ -51,14 +51,14 @@ GstElement *create_iphone_encoder(void)
 	filter = gst_element_factory_make ("capsfilter", "flt");
 	filtercaps = gst_caps_new_simple ("video/x-raw-yuv",
 					  "width", G_TYPE_INT, 640,
-					  "height", G_TYPE_INT, 386, NULL);
+					  "height", G_TYPE_INT, 480, NULL);
 	g_object_set (G_OBJECT (filter), "caps", filtercaps, NULL);
 	gst_caps_unref (filtercaps);
 
 	video = gst_element_factory_make ("x264enc", "video");
 	g_object_set(G_OBJECT(video), "cabac", 0, "ref", 2, "me", 2,
 				      "bframes", 0, "subme", 6, "dct8x8", 0,
-				      "pass", 5,
+				      "pass", 5, "profile", 1,
                                       NULL);
 	videoqueue = gst_element_factory_make ("queue", "video-queue");
 	parser = gst_element_factory_make ("h264parse", "parser");
